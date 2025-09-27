@@ -33,13 +33,17 @@ app.post('/api/users', async (req, res) => {
     const user = await newUser.save();
     res.json({ username: user.username, _id: user._id });
   } catch (err) {
-    console.log(err);
+    res.status(500).json('Server error');
   }
 });
 
 app.get('/api/users', async (req, res) => {
-  const users = await User.find({}).select('_id username');
-  res.json(users);
+  try {
+    const users = await User.find({}).select('_id username');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json('Server error');
+  }
 });
 
 app.post('/api/users/:_id/exercises', async (req, res) => {
@@ -49,20 +53,11 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     const user = await User.findById(id);
     if (!user) return res.send("Could not find user");
 
-    // --- Start of the fix ---
-    let dateObj;
-    if (!date) {
-      dateObj = new Date();
-    } else {
-      dateObj = new Date(date);
-    }
-    // --- End of the fix ---
-
     const newExercise = new Exercise({
       userId: user._id,
       description,
       duration: parseInt(duration),
-      date: dateObj,
+      date: date ? new Date(date) : new Date(),
     });
     const exercise = await newExercise.save();
     res.json({
@@ -73,7 +68,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
       date: exercise.date.toDateString(),
     });
   } catch (err) {
-    console.log(err);
+    res.status(500).json('Server error');
   }
 });
 
@@ -84,13 +79,13 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     const user = await User.findById(id);
     if (!user) return res.send("Could not find user");
 
-    let dateObj = {};
-    if (from) dateObj['$gte'] = new Date(from);
-    if (to) dateObj['$lte'] = new Date(to);
     let filter = { userId: id };
-    if (from || to) filter.date = dateObj;
+    let dateFilter = {};
+    if (from) dateFilter['$gte'] = new Date(from);
+    if (to) dateFilter['$lte'] = new Date(to);
+    if (from || to) filter.date = dateFilter;
 
-    const exercises = await Exercise.find(filter).limit(+limit ?? 500);
+    const exercises = await Exercise.find(filter).limit(+limit || 500);
     const log = exercises.map(e => ({
       description: e.description,
       duration: e.duration,
@@ -104,7 +99,7 @@ app.get('/api/users/:_id/logs', async (req, res) => {
       log,
     });
   } catch (err) {
-    console.log(err);
+    res.status(500).json('Server error');
   }
 });
 
